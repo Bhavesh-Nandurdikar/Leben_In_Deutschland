@@ -1,10 +1,20 @@
-import axios from "axios";
+import questions from "../data/questions.json";
 
-const api = axios.create({
-  baseURL: "http://localhost:3001/api",
-});
+function shuffle<T>(array: T[]): T[] {
+  const shuffled = [...array];
+
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+
+    [shuffled[i], shuffled[j]] = [
+      shuffled[j],
+      shuffled[i],
+    ];
+  }
+
+  return shuffled;
+}
 
 export const getQuestions = async () => {
-  const response = await api.get("/questions");
-  return response.data;
+  return shuffle(questions).slice(0, 33);
 };
