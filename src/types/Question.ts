@@ -1,7 +1,9 @@
 export interface Question {
-  id: number;
+  id: string;
   question: string;
   options: string[];
   correctAnswer: string;
-  imageUrl?: string;
+  imageUrls?: string[];
+  scope: "general" | "state";
+  stateCode?: string;
 }

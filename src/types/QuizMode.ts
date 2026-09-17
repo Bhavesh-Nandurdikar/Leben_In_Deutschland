@@ -1,1 +1,1 @@
-export type QuizMode = "practice" | "exam";
+export type QuizMode = "all" | "exam";

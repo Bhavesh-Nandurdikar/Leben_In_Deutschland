@@ -1,9 +1,9 @@
 export interface UserAnswer {
-  questionId: number;
+  questionId: string;
   question: string;
   options: string[];
   selectedAnswer: string;
   correctAnswer: string;
   isCorrect: boolean;
-  imageUrl?: string;
+  imageUrls?: string[];
 }

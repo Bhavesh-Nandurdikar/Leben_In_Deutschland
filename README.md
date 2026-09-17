@@ -71,3 +71,16 @@ export default defineConfig([
   },
 ])
 ```
+
+## Question data
+
+The app loads the current German question catalogue at runtime from the community-maintained BAMF LiD dataset:
+
+- 300 general questions
+- 160 state-specific questions (10 for each Bundesland)
+- German question and answer text
+- solutions validated against the BAMF Online-Testcenter
+
+Runtime source: `https://yehoraltshuler.github.io/bamf-lid-dataset/questions.json`
+
+The UI uses only the 10 state questions for the Bundesland selected by the user. Exam mode randomly selects 30 general questions and 3 questions from the selected state.

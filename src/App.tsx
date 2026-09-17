@@ -11,13 +11,16 @@ function App() {
   const [page, setPage] = useState<"home" | "quiz" | "result">("home");
   const [score, setScore] = useState(0);
   const [answers, setAnswers] = useState<UserAnswer[]>([]);
-  const [mode, setMode] = useState<QuizMode>("practice");
+  const [mode, setMode] = useState<QuizMode>("all");
+  const [stateCode, setStateCode] = useState("BE");
+  const [totalQuestions, setTotalQuestions] = useState(0);
 
   if (page === "home") {
     return (
       <Home
-        onStart={(selectedMode: QuizMode) => {
+        onStart={(selectedMode, selectedStateCode) => {
           setMode(selectedMode);
+          setStateCode(selectedStateCode);
           setPage("quiz");
         }}
       />
@@ -28,9 +31,11 @@ function App() {
     return (
       <Quiz
         mode={mode}
-        onComplete={(finalScore: number, finalAnswers: UserAnswer[]) => {
+        stateCode={stateCode}
+        onComplete={(finalScore, finalAnswers, finalTotalQuestions) => {
           setScore(finalScore);
           setAnswers(finalAnswers);
+          setTotalQuestions(finalTotalQuestions);
           setPage("result");
         }}
       />
@@ -40,11 +45,13 @@ function App() {
   return (
     <Result
       score={score}
-      totalQuestions={33}
+      totalQuestions={totalQuestions}
       answers={answers}
+      mode={mode}
       onRestart={() => {
         setScore(0);
         setAnswers([]);
+        setTotalQuestions(0);
         setPage("home");
       }}
     />
