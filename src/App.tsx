@@ -5,7 +5,14 @@ import Quiz from "./pages/Quiz";
 import Result from "./pages/Result";
 import Progress from "./pages/Progress";
 
-import { clearSavedAttempts, getSavedAttempts, saveAttempt } from "./services/history";
+import {
+  clearSavedAttempts,
+  getSavedAttempts,
+  isProgressSavingEnabled,
+  saveAttempt,
+  setProgressSavingEnabled,
+} from "./services/history";
+
 import type { UserAnswer } from "./types/UserAnswer";
 import type { QuizMode } from "./types/QuizMode";
 import type { QuizAttempt } from "./types/QuizAttempt";
@@ -19,7 +26,9 @@ function App() {
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [attempts, setAttempts] = useState<QuizAttempt[]>(() => getSavedAttempts());
   const [sessionStartedAt, setSessionStartedAt] = useState(() => new Date().toISOString());
-
+  const [saveProgress, setSaveProgress] = useState(
+    () => isProgressSavingEnabled()
+  );
   const goHome = () => {
     setScore(0);
     setAnswers([]);
@@ -38,7 +47,19 @@ function App() {
   };
 
   if (page === "home") {
-    return <Home onStart={startQuiz} onProgress={() => setPage("progress")} />;
+    return <Home
+      onStart={startQuiz}
+      onProgress={() => setPage("progress")}
+      saveProgress={saveProgress}
+      onSaveProgressChange={(enabled) => {
+        setProgressSavingEnabled(enabled);
+        setSaveProgress(enabled);
+
+        if (!enabled) {
+          setAttempts([]);
+        }
+      }}
+    />;
   }
 
   if (page === "progress") {
