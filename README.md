@@ -1,86 +1,69 @@
-# React + TypeScript + Vite
+# Leben in Deutschland – Practice App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React/Vite practice app for the German **Leben in Deutschland** question catalogue.
 
-Currently, two official plugins are available:
+## Current features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- Select any of the 16 Bundesländer.
+- **Lernmodus:** 300 general + 10 state-specific questions.
+- **Prüfungssimulation:** 30 random general + 3 random state questions, 60-minute timer.
+- Previous/next navigation, direct question overview, unanswered tracking and an explicit **Test beenden** flow.
+- Result review for correct, incorrect and unanswered questions.
+- Local browser history under **Mein Fortschritt** (last 30 completed attempts).
+- Responsive UI for desktop and mobile.
+- Monthly GitHub Actions workflow for refreshing the BAMF catalogue.
 
 ## Question data
 
-The app loads the current German question catalogue at runtime from the community-maintained BAMF LiD dataset:
+The frontend first reads:
 
-- 300 general questions
-- 160 state-specific questions (10 for each Bundesland)
-- German question and answer text
-- solutions validated against the BAMF Online-Testcenter
+```text
+/public/data/bamf/questions.json
+/public/data/bamf/images/*
+```
 
-Runtime source: `https://yehoraltshuler.github.io/bamf-lid-dataset/questions.json`
+The repository includes a monthly workflow in `.github/workflows/update-bamf.yml`. It runs on the first day of each month and can also be started manually from GitHub Actions.
 
-The UI uses only the 10 state questions for the Bundesland selected by the user. Exam mode randomly selects 30 general questions and 3 questions from the selected state.
+The workflow uses the open-source `bamf-lid-dataset` build tooling to rebuild the catalogue from the official BAMF **Gesamtfragenkatalog PDF** and **Online-Testcenter**, validates the result, and opens a pull request when the snapshot changes.
+
+### Important first-time step
+
+After pushing this code to GitHub, run **Actions → Update BAMF question catalogue → Run workflow** once and merge the generated PR. That vendors the current 460-question dataset and images into your repository.
+
+Before that first local snapshot exists, the development app falls back to the published `bamf-lid-dataset` endpoint.
+
+## Development
+
+```bash
+npm install
+npm run dev
+```
+
+Production build:
+
+```bash
+npm run build
+```
+
+Validate a generated local BAMF snapshot:
+
+```bash
+node scripts/validate-bamf-data.mjs
+```
+
+## User accounts
+
+Completed attempts are currently stored locally in the browser. The app is structured so this result-history layer can later be swapped for Firebase Authentication + Firestore without changing the quiz flow.
+
+The next account milestone is:
+
+- guest access remains available;
+- optional Google/email sign-in;
+- sync attempt history across devices;
+- Firestore security rules so users can access only their own data.
+
+Firebase credentials are intentionally not hardcoded into this repository.
+
+## Disclaimer
+
+This is an independent learning aid and not an official BAMF website. Verify authoritative information against the current BAMF sources before publication.

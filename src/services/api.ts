@@ -1,8 +1,10 @@
 import type { Question } from "../types/Question";
 import type { QuizMode } from "../types/QuizMode";
 
-const DATASET_BASE_URL = "https://yehoraltshuler.github.io/bamf-lid-dataset";
-const DATASET_URL = `${DATASET_BASE_URL}/questions.json`;
+const LOCAL_DATASET_URL = "/data/bamf/questions.json";
+const LOCAL_DATASET_BASE = "/data/bamf";
+const FALLBACK_DATASET_BASE = "https://yehoraltshuler.github.io/bamf-lid-dataset";
+const FALLBACK_DATASET_URL = `${FALLBACK_DATASET_BASE}/questions.json`;
 
 interface BamfImage {
   path: string;
@@ -35,7 +37,7 @@ function shuffle<T>(array: T[]): T[] {
   return shuffled;
 }
 
-function normalizeQuestion(question: BamfQuestion): Question {
+function normalizeQuestion(question: BamfQuestion, baseUrl: string): Question {
   const optionKeys: Array<keyof BamfQuestion["answers"]> = ["a", "b", "c", "d"];
   const options = optionKeys.map((key) => question.answers[key]);
 
@@ -44,23 +46,41 @@ function normalizeQuestion(question: BamfQuestion): Question {
     question: question.question,
     options,
     correctAnswer: question.answers[question.solution],
-    imageUrls: question.images.map((image) => `${DATASET_BASE_URL}/${image.path}`),
+    imageUrls: question.images.map((image) => `${baseUrl}/${image.path}`),
     scope: question.scope,
     stateCode: question.stateCode ?? undefined,
   };
 }
 
+async function fetchDataset(url: string): Promise<BamfDataset | null> {
+  try {
+    const response = await fetch(url, { cache: "no-cache" });
+    if (!response.ok) return null;
+    return (await response.json()) as BamfDataset;
+  } catch {
+    return null;
+  }
+}
+
 async function loadQuestionBank(): Promise<Question[]> {
   if (cachedQuestions) return cachedQuestions;
 
-  const response = await fetch(DATASET_URL);
-
-  if (!response.ok) {
-    throw new Error(`Fragenkatalog konnte nicht geladen werden (${response.status}).`);
+  const localDataset = await fetchDataset(LOCAL_DATASET_URL);
+  if (localDataset?.questions?.length) {
+    cachedQuestions = localDataset.questions.map((question) =>
+      normalizeQuestion(question, LOCAL_DATASET_BASE),
+    );
+    return cachedQuestions;
   }
 
-  const dataset = (await response.json()) as BamfDataset;
-  cachedQuestions = dataset.questions.map(normalizeQuestion);
+  const fallbackDataset = await fetchDataset(FALLBACK_DATASET_URL);
+  if (!fallbackDataset?.questions?.length) {
+    throw new Error("Fragenkatalog konnte nicht geladen werden.");
+  }
+
+  cachedQuestions = fallbackDataset.questions.map((question) =>
+    normalizeQuestion(question, FALLBACK_DATASET_BASE),
+  );
   return cachedQuestions;
 }
 
