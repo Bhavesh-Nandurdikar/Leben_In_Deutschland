@@ -1,0 +1,193 @@
+name: Update BAMF question catalogue
+
+on:
+  # Allows you to run it manually from GitHub → Actions
+  workflow_dispatch:
+
+  # Automatically runs on the 1st day of every month
+  schedule:
+    - cron: "0 8 1 * *"
+      timezone: "Europe/Berlin"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-bamf-question-catalogue
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Check BAMF for question updates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ------------------------------------------------------------
+      # 1. Checkout your Leben in Deutschland repository
+      # ------------------------------------------------------------
+      - name: Checkout app repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ------------------------------------------------------------
+      # 2. Checkout the BAMF dataset builder
+      #
+      # This builder reads:
+      # - official BAMF Gesamtfragenkatalog PDF
+      # - official BAMF Online-Testcenter
+      # ------------------------------------------------------------
+      - name: Checkout BAMF dataset builder
+        uses: actions/checkout@v4
+        with:
+          repository: YehorAltshuler/bamf-lid-dataset
+          path: .bamf-source
+
+      # ------------------------------------------------------------
+      # 3. Setup Python
+      # ------------------------------------------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: .bamf-source/pyproject.toml
+
+      # ------------------------------------------------------------
+      # 4. Install the BAMF scraper/parser
+      # ------------------------------------------------------------
+      - name: Install BAMF dataset builder
+        working-directory: .bamf-source
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      # ------------------------------------------------------------
+      # 5. Install Chromium
+      #
+      # Required because BAMF's Online-Testcenter is scraped using
+      # Playwright.
+      # ------------------------------------------------------------
+      - name: Install Chromium
+        working-directory: .bamf-source
+        run: |
+          playwright install --with-deps chromium
+
+      # ------------------------------------------------------------
+      # 6. Test the dataset builder first
+      # ------------------------------------------------------------
+      - name: Run BAMF builder tests
+        working-directory: .bamf-source
+        run: |
+          pytest
+
+      # ------------------------------------------------------------
+      # 7. Build a fresh dataset directly from BAMF
+      # ------------------------------------------------------------
+      - name: Build latest BAMF dataset
+        working-directory: .bamf-source
+        timeout-minutes: 15
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: |
+          rm -rf data/source data/staging
+          bamf-lid all
+
+      # ------------------------------------------------------------
+      # 8. Copy into our app ONLY if actual question content changed
+      #
+      # Your script compares the questions themselves rather than
+      # generated timestamps.
+      # ------------------------------------------------------------
+      - name: Apply BAMF update
+        run: |
+          node scripts/apply-bamf-update.mjs \
+            .bamf-source/data/published \
+            public/data/bamf
+
+      # ------------------------------------------------------------
+      # 9. Validate OUR copy
+      #
+      # Expected:
+      # 460 total
+      # 300 general
+      # 10 questions × 16 Bundesländer
+      # all images present
+      # ------------------------------------------------------------
+      - name: Validate local BAMF dataset
+        run: |
+          node scripts/validate-bamf-data.mjs
+
+      # ------------------------------------------------------------
+      # 10. Remove temporary scraper repo
+      #
+      # We don't want this included in the PR.
+      # ------------------------------------------------------------
+      - name: Remove temporary builder
+        run: |
+          rm -rf .bamf-source
+
+      # ------------------------------------------------------------
+      # 11. Check whether questions actually changed
+      #
+      # git status is used instead of git diff because the first run
+      # may create completely new/untracked files.
+      # ------------------------------------------------------------
+      - name: Detect question changes
+        id: changes
+        shell: bash
+        run: |
+          if [ -n "$(git status --porcelain -- public/data/bamf)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "BAMF question catalogue has changed."
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No BAMF question changes detected."
+          fi
+
+      # ------------------------------------------------------------
+      # 12. Create a PR instead of automatically modifying main
+      # ------------------------------------------------------------
+      - name: Create BAMF update pull request
+        if: steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+          branch: automated/bamf-question-update
+          delete-branch: true
+
+          commit-message: "Update BAMF question catalogue"
+
+          title: "Update BAMF question catalogue"
+
+          body: |
+            ## Automatic BAMF question update
+
+            The monthly BAMF check detected changes in the
+            Leben in Deutschland question catalogue.
+
+            The dataset has been rebuilt using the official:
+
+            - BAMF Gesamtfragenkatalog
+            - BAMF Online-Testcenter
+
+            Validation completed successfully:
+
+            - 460 total questions
+            - 300 general questions
+            - 10 questions for each Bundesland
+            - all referenced images are present
+
+            Please review the changes before merging this PR.
+
+            This PR was created automatically by GitHub Actions.
+
+          labels: |
+            automated
+            bamf-update
+
+          add-paths: |
+            public/data/bamf/**
